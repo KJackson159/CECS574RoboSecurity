@@ -25,34 +25,35 @@ NS_LOG_COMPONENT_DEFINE ("EdgeCompNorm");
 
 /*------------------------------------||| CLASSES FOR CLIENT AND EDGE NODES |||--------------------------------------------------------------*/
 //Client application for each client node
-class ClientApp : public Application {
+class ClientApp : public Application{
 	public:
-		ClientApp() {}
-		virtual ~ClientApp() {}
+		ClientApp(){}
+		virtual ~ClientApp(){}
+		//Setup client node
 		void Setup(Address address, uint16_t port, std::string message, Address nextAddr)
 		{	m_myAddress = address; m_peerPort = port; m_message = message; m_sendAddress = nextAddr;	}
 	private:
-		virtual void StartApplication() {
+		virtual void StartApplication(){
 			if(!m_socket) m_socket = Socket::CreateSocket(GetNode(), 
 						  TypeId::LookupByName("ns3::UdpSocketFactory"));
-			m_socket->Bind(m_myAddress);
-			Simulator::Schedule(Seconds(1.0), &ClientApp::SendPacket, this);
+			m_socket->Bind(m_myAddress); //Bind client address to socket
+			Simulator::Schedule(Simulator::Now(), &ClientApp::SendPacket, this);
 			m_socket->SetRecvCallback(MakeCallback(&ClientApp::ReceivePacket, this));
 		}
-		virtual void StopApplication() {
-			if (m_socket) {m_socket->Close(); m_socket=NULL;}
+		virtual void StopApplication(){
+			if (m_socket) {m_socket->Close(); m_socket=NULL;} NS_LOG_INFO("Socket Dereference Successful");
 		}
-		void SendPacket() {
+		void SendPacket(){
 			Ptr<Packet> packet = Create<Packet>((uint8_t*)m_message.c_str(), m_message.size());
 			if(m_socket){
 				m_socket->SendTo(packet, 0, m_sendAddress);
-				std::cout << "At " << Simulator::Now() << ", " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() <<
-				" sent msg to " << InetSocketAddress::ConvertFrom(m_sendAddress).GetIpv4()  << std::endl;
-				Simulator::Schedule(Simulator::Now(), &ClientApp::SendPacket, this); 
+				std::cout << "At time " << Simulator::Now() << ", " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4()
+				<< " sent msg to " << InetSocketAddress::ConvertFrom(m_sendAddress).GetIpv4()  << std::endl;
+				Simulator::Schedule(Simulator::Now(), &ClientApp::SendPacket, this);
 			}
 		}
 		void ReceivePacket(Ptr<Socket> socket){
-			Address from;
+			Address from; //Receive returned message from edge server
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -66,24 +67,25 @@ class ClientApp : public Application {
 };
 
 //Edge application for chosen edge server node as sink
-class EdgeApp : public Application{
+class EdgeApp : public Application {
 	public:
-		EdgeApp(){}
-		virtual ~EdgeApp(){}
+		EdgeApp() {}
+		virtual ~EdgeApp() {}
+		//Setup edge node
 		void Setup(Address address, uint16_t port)
 		{	m_myAddress = address; m_peerPort = port; 	}
 	private:
-		virtual void StartApplication(){
+		virtual void StartApplication() {
 			if(!m_socket) m_socket = Socket::CreateSocket(GetNode(), 
 						  TypeId::LookupByName("ns3::UdpSocketFactory"));
-			m_socket->Bind(m_myAddress);
+			m_socket->Bind(m_myAddress); //Bind edge server address to socket
 			m_socket->SetRecvCallback(MakeCallback(&EdgeApp::ReceivePacket, this));
 		}
-		virtual void StopApplication(){
-			if (m_socket){m_socket->Close(); m_socket=NULL;}
+		virtual void StopApplication() {
+			if (m_socket) {m_socket->Close(); m_socket=NULL;} NS_LOG_INFO("Socket Dereference Successful");
 		}
-		void ReceivePacket(Ptr<Socket> socket){
-			Address from;
+		void ReceivePacket(Ptr<Socket> socket) {
+			Address from; // Receive a message from client
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -91,6 +93,7 @@ class EdgeApp : public Application{
 			packet->CopyData(buffer, packet->GetSize());
 			std::string receivedMsg((char*)buffer, packet->GetSize());
 			std::cout << "Received msg: " << receivedMsg << std::endl;
+			// Return a message to corresponding client
 			std::stringstream returnMsg;
 			returnMsg << "This is a return msg from " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() 
 				     << " to " << InetSocketAddress::ConvertFrom(from).GetIpv4();
@@ -98,8 +101,8 @@ class EdgeApp : public Application{
 			Ptr<Packet> returnPacket = Create<Packet>((uint8_t*)strReturnMsg.c_str(), strReturnMsg.size());
 			if(m_socket){
 				m_socket->SendTo(returnPacket, 0, from);
-				std::cout << "At time " << Simulator::Now() << ", " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() <<
-				" sent msg to " << InetSocketAddress::ConvertFrom(from).GetIpv4() << std::endl << std::endl; 
+				std::cout << "At time " << Simulator::Now() << ", " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4()
+				<< " sent msg to " << InetSocketAddress::ConvertFrom(from).GetIpv4() << std::endl << std::endl;
 			}
 		}
 		Ptr<Socket> m_socket; Address m_myAddress; uint16_t m_peerPort; 
