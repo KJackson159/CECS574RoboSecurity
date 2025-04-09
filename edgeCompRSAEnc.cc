@@ -133,6 +133,7 @@ class RSAClient : public Application{
 	public:
 		RSAClient(){}
 		virtual ~RSAClient(){}
+		//Function Called to set up client node with RSA
 		void Setup(Address address, uint16_t port, std::string publicKey, std::string privateKey, 
 			   std::string message, Address sendToAddr){
 			m_myAddress = address; m_peerPort = port;
@@ -143,7 +144,7 @@ class RSAClient : public Application{
 		virtual void StartApplication(){
 			if(!m_socket) m_socket = Socket::CreateSocket(GetNode(), 
 						  TypeId::LookupByName("ns3::UdpSocketFactory"));
-			m_socket->Bind(m_myAddress);
+			m_socket->Bind(m_myAddress); //Bind client's address to socket
 			
 			//Simulator::Schedule(Seconds(0.0001), &RSAClient::SendPubKey, this);
 			//m_socket->SetRecvCallback(MakeCallback(&RSAClient::RecvSharedKey, this));
@@ -151,7 +152,7 @@ class RSAClient : public Application{
 			Simulator::Schedule(Seconds(1.0), &RSAClient::SendPacket, this);
 			m_socket->SetRecvCallback(MakeCallback(&RSAClient::ReceivePacket, this));
 		}
-		virtual void StopApplication(){
+		virtual void StopApplication(){ //Dereference socket before ending app
 			if (m_socket) {m_socket->Close(); m_socket=NULL;} NS_LOG_INFO("Socket Dereference Successful");
 		}/*
 		void SendPubKey(){
@@ -183,7 +184,7 @@ class RSAClient : public Application{
 			}
 		}
 		void ReceivePacket(Ptr<Socket> socket){
-			Address from;
+			Address from; //Receive encrypted message from edge server
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received encrypted msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -202,6 +203,7 @@ class RSAEdge : public Application{
 	public:
 		RSAEdge(){}
 		virtual ~RSAEdge(){}
+		//Function Called to set up edge node with RSA
 		void Setup(Address address, uint16_t port, std::string publicKey, std::string privateKey, std::string message){
 			m_myAddress = address; m_peerPort = port;
 			m_publicKey = publicKey; m_privateKey = privateKey;
@@ -211,7 +213,7 @@ class RSAEdge : public Application{
 		virtual void StartApplication(){
 			if(!m_socket) m_socket = Socket::CreateSocket(GetNode(), 
 						  TypeId::LookupByName("ns3::UdpSocketFactory"));
-			m_socket->Bind(m_myAddress);
+			m_socket->Bind(m_myAddress); //Bind edge server's address to socket
 			//m_socket->SetRecvCallback(MakeCallback(&RSAEdge::RecvPubKey, this));
 			//Simulator::Schedule(Seconds(0.1), MakeCallback(&RecvPubKey), this);
 			m_socket->SetRecvCallback(MakeCallback(&RSAEdge::ReceivePacket, this));
@@ -240,7 +242,7 @@ class RSAEdge : public Application{
 			}
 		}*/
 		void ReceivePacket(Ptr<Socket> socket){
-			Address from;
+			Address from; //Receive encrypted message from client
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received encrypted msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -249,7 +251,7 @@ class RSAEdge : public Application{
 			std::string encryptedMessage((char*)buffer, packet->GetSize());
 			std::string decryptedMessage = DecryptWithPrivateKey(encryptedMessage, m_privateKey);
 			std::cout << "Decrypted msg: " << decryptedMessage << std::endl;
-			
+			//Return an encrypted message to corresponding client
 			std::string returnEncMsg = EncryptWithPublicKey(m_message, m_publicKey);
 			Ptr<Packet> returnPkt = Create<Packet>((uint8_t*)returnEncMsg.c_str(), returnEncMsg.size());
 			if(m_socket){
@@ -291,7 +293,7 @@ class ClientApp : public Application{
 			}
 		}
 		void ReceivePacket(Ptr<Socket> socket){
-			Address from;
+			Address from; //Receive returned message from edge server
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -322,7 +324,7 @@ class EdgeApp : public Application {
 			if (m_socket) {m_socket->Close(); m_socket=NULL;} NS_LOG_INFO("Socket Dereference Successful");
 		}
 		void ReceivePacket(Ptr<Socket> socket) {
-			Address from;
+			Address from; // Receive a message from client
 			Ptr<Packet> packet = socket->RecvFrom(from);
 			std::cout << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() << " received msg from " 
 			<< InetSocketAddress::ConvertFrom(from).GetIpv4() << " at " << Simulator::Now() << std::endl;
@@ -330,6 +332,7 @@ class EdgeApp : public Application {
 			packet->CopyData(buffer, packet->GetSize());
 			std::string receivedMsg((char*)buffer, packet->GetSize());
 			std::cout << "Received msg: " << receivedMsg << std::endl;
+			// Return a message to corresponding client
 			std::stringstream returnMsg;
 			returnMsg << "This is a return msg from " << InetSocketAddress::ConvertFrom(m_myAddress).GetIpv4() 
 				     << " to " << InetSocketAddress::ConvertFrom(from).GetIpv4();
