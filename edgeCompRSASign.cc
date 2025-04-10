@@ -20,7 +20,6 @@
 
 #define MAX_SIMULATION_TIME 10.0
 #define RSA_BITS 2048
-#define AES_BITS 256
 /*
 CODE REFERENCES:
 https://phdprime.com/how-to-simulate-edge-computing-projects-using-ns3/
